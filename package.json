@@ -6,20 +6,9 @@
   "license": "MIT",
   "repository": "https://myfatoorahsc@dev.azure.com/myfatoorahsc/MF-SDK-React-Native/_git/MF-SDK-React-Native",
   "main": "dist/index.js",
-  "module": "dist/index.es.js",
-  "jsnext:main": "dist/index.es.js",
-  "engines": {
-    "node": ">=8",
-    "npm": ">=5"
-  },
   "scripts": {
     "test": "cross-env CI=1 react-scripts test --env=jsdom",
-    "test:watch": "react-scripts test --env=jsdom",
-    "build": "rollup -c",
-    "start": "rollup -c -w",
-    "prepare": "npm run build",
-    "predeploy": "cd example && npm install && npm run build",
-    "deploy": "gh-pages -d example/build"
+    "test:watch": "react-scripts test --env=jsdom"
   },
   "peerDependencies": {
     "prop-types": "^15.5.4",
