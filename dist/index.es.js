@@ -120,6 +120,11 @@ var Response = function () {
       return this.getBodyJson().Data.PaymentURL;
     }
   }, {
+    key: 'getRecurringId',
+    value: function getRecurringId() {
+      return this.getBodyJson().Data.RecurringId;
+    }
+  }, {
     key: 'getData',
     value: function getData() {
       return this.getBodyJson().Data;
@@ -166,61 +171,86 @@ var Response = function () {
   return Response;
 }();
 
-var MFSettings = function () {
-  function MFSettings() {
-    classCallCheck(this, MFSettings);
-  }
+var MFLanguage = Object.freeze({
+    ARABIC: 'ar',
+    ENGLISH: 'en'
+});
 
-  createClass(MFSettings, [{
-    key: 'configure',
-    value: function configure(baseURL, token) {
-      this.environment = baseURL;
-      if (baseURL.charAt(baseURL.length - 1) !== "/") {
-        this.baseURL = baseURL + '/';
-      } else {
-        this.baseURL = baseURL;
-      }
-      this.token = token;
-    }
-  }, {
-    key: 'getBaseURL',
-    value: function getBaseURL() {
-      return this.baseURL + 'v2/';
-    }
-  }, {
-    key: 'getToken',
-    value: function getToken() {
-      return this.token;
-    }
-  }, {
-    key: 'setTheme',
-    value: function setTheme(theme) {
-      this.theme = theme;
-    }
-  }, {
-    key: 'getTheme',
-    value: function getTheme() {
-      if (this.theme === undefined) {
-        return new MFTheme('red', 'gray', 'Payment', 'Cancel');
-      }
-      return this.theme;
-    }
-  }, {
-    key: 'getInvironment',
-    value: function getInvironment() {
-      return this.environment;
-    }
-  }]);
-  return MFSettings;
-}();
+var MFNotificationOption = Object.freeze({
+    ALL: 'all',
+    EMAIL: 'eml',
+    SMS: 'sms',
+    LINK: 'lnk'
+});
 
-MFSettings.sharedInstance = MFSettings.sharedInstance == null ? new MFSettings() : MFSettings.sharedInstance;
-function MFTheme(navigationTintColor, navigationBarTintColor, navigationTitle, cancelButtonTitle) {
-  this.navigationTintColor = navigationTintColor;
-  this.navigationBarTintColor = navigationBarTintColor;
-  this.navigationTitle = navigationTitle;
-  this.cancelButtonTitle = cancelButtonTitle;
-}
+var MFPaymentype = Object.freeze({
+    CARD: 'card',
+    TOKEN: 'token'
+});
+
+var MFMobileCountryCodeISO = Object.freeze({
+    KUWAIT: '+965',
+    SAUDIARABIA: '+966',
+    BAHRAIN: '+973',
+    UAE: '+971',
+    QATAR: '+974',
+    OMAN: '+968',
+    JORDAN: '+962',
+    EGYPT: '+20'
+});
+
+var MFCurrencyISO = Object.freeze({
+    KUWAIT_KWD: 'KWD',
+    SAUDIARABIA_SAR: 'SAR',
+    BAHRAIN_BHD: 'BHD',
+    UAE_AED: 'AED',
+    QATAR_QAR: 'QAR',
+    OMAN_MOR: 'OMR',
+    JORDAN_JOD: 'JOD',
+    UNITEDSTATES_USD: 'USD',
+    EURO_EUR: 'EUR'
+});
+
+var MFKeyType = Object.freeze({
+    INVOICEID: 'InvoiceId',
+    PAYMENTID: 'PaymentId'
+});
+
+var MFPaymentMethodCode = Object.freeze({
+    AMEX: "ae",
+    SADAD: "s",
+    BENEFIT: "b",
+    UAEDEBITCARDS: "uaecc",
+    QATARDEBITCARDS: "np",
+    MADA: "md",
+    KFAST: "kf",
+    KNET: "kn",
+    APPLEPAY: "ap",
+    AFS: "af",
+    VISAMASTER: "vm",
+    STCPAY: "stc"
+});
+var MFEnvironment = Object.freeze({
+    TEST: 'TEST', //'https://apitest.myfatoorah.com',
+    LIVE: 'LIVE' //'https://api.myfatoorah.com'
+});
+
+var MFCountry = Object.freeze({
+    KUWAIT: 'KWT',
+    SAUDIARABIA: 'SAU',
+    BAHRAIN: 'BHR',
+    UNITEDARABEMIRATES: 'ARE',
+    QATAR: 'QAT',
+    OMAN: 'OMN',
+    JORDAN: 'JOD',
+    EGYPT: 'EGY'
+});
+var MFRecurringType = Object.freeze({
+    Custom: 'Custom',
+    Daily: 'Daily',
+    Weekly: 'Weekly',
+    Monthly: 'Monthly'
+});
 
 var TypeCheck = function () {
   function TypeCheck() {
@@ -441,8 +471,8 @@ var RNETWORK = function () {
   }
 
   createClass(RNETWORK, null, [{
-    key: 'get',
-    value: function get$$1(request, preExecuteCallback, postExecuteCallback) {
+    key: 'get2',
+    value: function get2(request, preExecuteCallback, postExecuteCallback) {
       if (preExecuteCallback) {
         preExecuteCallback();
       }
@@ -461,6 +491,39 @@ var RNETWORK = function () {
           response.setHeaders(apiResponse.headers.map);
           response.setUrl(apiResponse.url);
           response.setBody(apiResponse._bodyText);
+          postExecuteCallback(response);
+        }).catch(function (error) {
+          LOGGER.log("Error", error);
+          response.setError("Network Connection Failed", error);
+          postExecuteCallback(response);
+        });
+      } catch (error) {
+        LOGGER.log("Error", error);
+        response.setError("Request Failed. Please check the request details.", error);
+        postExecuteCallback(response);
+      }
+    }
+  }, {
+    key: 'get',
+    value: function get$$1(request, preExecuteCallback, postExecuteCallback) {
+      if (preExecuteCallback) {
+        preExecuteCallback();
+      }
+      var url = request.getUrl();
+      if (!TypeCheck.isEmpty(request.getQueryParams())) {
+        url = url + request.getQueryParams();
+      }
+      var response = new Response();
+      try {
+        fetch(url, {
+          method: 'GET',
+          headers: request.getHeaders()
+        }).then(function (response) {
+          return response.text();
+        }).then(function (apiResponse) {
+          LOGGER.log("URL----" + url + "/n Response----" + JSON.stringify(apiResponse));
+          response.setBody(apiResponse);
+          // response.setBody(JSON.stringify(apiResponse));
           postExecuteCallback(response);
         }).catch(function (error) {
           LOGGER.log("Error", error);
@@ -522,6 +585,9 @@ function MFInitiatePayment$$1(invoiceAmount, currencyIso) {
   this.invoiceAmount = invoiceAmount;
   this.currencyIso = currencyIso;
 }
+function MFInitiateSessionRequest$$1(customerIdentifier) {
+  this.customerIdentifier = customerIdentifier;
+}
 function MFExecutePaymentRequest$$1(invoiceValue, paymentMethod, callBackUrl, errorUrl) {
   this.invoiceValue = invoiceValue;
   if (paymentMethod === undefined) {
@@ -556,6 +622,7 @@ function MFExecutePaymentRequest$$1(invoiceValue, paymentMethod, callBackUrl, er
   this.supplierValue = 0;
   this.suppliers = [];
   this.sessionId = '';
+  this.recurringModel = null;
 }
 
 function MFProduct$$1(name, unitPrice, quantity) {
@@ -568,6 +635,11 @@ function MFSupplier$$1(supplierCode, proposedShare, invoiceShare) {
   this.supplierCode = supplierCode;
   this.proposedShare = proposedShare;
   this.invoiceShare = invoiceShare;
+}
+function MFRecurringModel$$1(recurringType, intervalDays, iteration) {
+  this.recurringType = recurringType;
+  this.intervalDays = intervalDays;
+  this.iteration = iteration;
 }
 
 function MFCustomerAddress$$1(block, street, houseBuildingNo, address, addressInstructions) {
@@ -614,80 +686,17 @@ function MFSendPaymentRequest$$1(invoiceValue, notificationOption, customerName)
   this.supplierValue = 0;
 }
 
-var MFLanguage = Object.freeze({
-    ARABIC: 'ar',
-    ENGLISH: 'en'
-});
-
-var MFNotificationOption = Object.freeze({
-    ALL: 'all',
-    EMAIL: 'eml',
-    SMS: 'sms',
-    LINK: 'lnk'
-});
-
-var MFPaymentype = Object.freeze({
-    CARD: 'card',
-    TOKEN: 'token'
-});
-
-var MFMobileCountryCodeISO = Object.freeze({
-    KUWAIT: '+965',
-    SAUDIARABIA: '+966',
-    BAHRAIN: '+973',
-    UAE: '+971',
-    QATAR: '+974',
-    OMAN: '+968',
-    JORDAN: '+962'
-});
-
-var MFCurrencyISO = Object.freeze({
-    KUWAIT_KWD: 'KWD',
-    SAUDIARABIA_SAR: 'SAR',
-    BAHRAIN_BHD: 'BHD',
-    UAE_AED: 'AED',
-    QATAR_QAR: 'QAR',
-    OMAN_MOR: 'OMR',
-    JORDAN_JOD: 'JOD',
-    UNITEDSTATES_USD: 'USD',
-    EURO_EUR: 'EUR'
-});
-
-var MFKeyType = Object.freeze({
-    INVOICEID: 'InvoiceId',
-    PAYMENTID: 'PaymentId'
-});
-
-var MFPaymentMethodCode = Object.freeze({
-    AMEX: "ae",
-    SADAD: "s",
-    BENEFIT: "b",
-    UAEDEBITCARDS: "uaecc",
-    QATARDEBITCARDS: "np",
-    MADA: "md",
-    KFAST: "kf",
-    KNET: "kn",
-    APPLEPAY: "ap",
-    AFS: "af",
-    VISAMASTER: "vm",
-    STCPAY: "stc"
-});
-var MFEnvironment = Object.freeze({
-    TEST: 'https://apitest.myfatoorah.com',
-    LIVE: 'https://api.myfatoorah.com'
-});
-
 /**
  * @class
  * @classdesc A handle payment requests.
  */
 
-var MFPaymentRequest = function () {
-  function MFPaymentRequest() {
-    classCallCheck(this, MFPaymentRequest);
+var MFPaymentRequest$$1 = function () {
+  function MFPaymentRequest$$1() {
+    classCallCheck(this, MFPaymentRequest$$1);
   }
 
-  createClass(MFPaymentRequest, [{
+  createClass(MFPaymentRequest$$1, [{
     key: 'initiatePayment',
 
 
@@ -733,6 +742,7 @@ var MFPaymentRequest = function () {
 
     /**
     * Initiate session id.
+    * @param  {MFInitiateSessionRequest} request - initiate session object.
     * @param  {string} apiLanguage - API language.
     * @param  {postExecuteCallback} postExecuteCallback - callback to handle response.
     */
@@ -744,8 +754,14 @@ var MFPaymentRequest = function () {
 
   }, {
     key: 'initiateSession',
-    value: function initiateSession(apiLanguage, postExecuteCallback) {
-      issueRequest(undefined, 'InitiateSession', apiLanguage, false, function (response) {
+    value: function initiateSession(request, apiLanguage, postExecuteCallback) {
+      var jsonData = undefined;
+      if (request !== undefined) {
+        var jsonData = {
+          'CustomerIdentifier': request.customerIdentifier
+        };
+      }
+      issueRequest(jsonData, 'InitiateSession', apiLanguage, false, function (response) {
         var errorMessage = response.errorMessage(false, false);
         if (errorMessage.length !== 0) {
           response.setError("Error Message", errorMessage);
@@ -778,7 +794,8 @@ var MFPaymentRequest = function () {
           postExecuteCallback(response);
         } else {
           var url = response.getPaymentURL();
-          navigation.navigate('MFWebView', { link: url, apiLanguage: apiLanguage, postExecuteCallback: postExecuteCallback });
+          var recurringId = response.getRecurringId();
+          navigation.navigate('MFWebView', { link: url, apiLanguage: apiLanguage, recurringId: recurringId, postExecuteCallback: postExecuteCallback });
         }
       });
     }
@@ -902,10 +919,10 @@ var MFPaymentRequest = function () {
       });
     }
   }]);
-  return MFPaymentRequest;
+  return MFPaymentRequest$$1;
 }();
 
-MFPaymentRequest.sharedInstance = MFPaymentRequest.sharedInstance == null ? new MFPaymentRequest() : MFPaymentRequest.sharedInstance;
+MFPaymentRequest$$1.sharedInstance = MFPaymentRequest$$1.sharedInstance == null ? new MFPaymentRequest$$1() : MFPaymentRequest$$1.sharedInstance;
 
 //region REQUEST HANDLE METHODS
 function executePaymentJson(request) {
@@ -969,6 +986,14 @@ function executePaymentJson(request) {
             "ProposedShare": supplier.proposedShare,
             "InvoiceShare": supplier.invoiceShare
         });
+    }
+    if (request.recurringModel != null) {
+        var recurringModelData = {
+            "Iteration": request.recurringModel.iteration,
+            "RecurringType": request.recurringModel.recurringType,
+            "IntervalDays": request.recurringModel.intervalDays
+        };
+        jsonData.RecurringModel = recurringModelData;
     }
     if (invoiceItems.length !== 0) {
         jsonData.InvoiceItems = invoiceItems;
@@ -1069,20 +1094,66 @@ function cardInfoJson(cardInfo, intervalDays) {
 //endregion
 
 //region NETOWRK HANDLE METHOD
+function loadCountries(tryCount, jsonData, methodName, apiLanguage, withFullPath, postExecuteCallback) {
+    if (tryCount > 3) {
+        return;
+    }
+    issueRequest2(undefined, "https://portal.myfatoorah.com/Files/API/mf-config.json", MFLanguage.ENGLISH, true, function (response) {
+        if (response.error) {
+            loadCountries(tryCount + 1, jsonData, methodName, apiLanguage, withFullPath, postExecuteCallback);
+        } else {
+            MFPaymentRequest$$1.sharedInstance.countries = response.getBodyJson();
+            MFSettings$$1.sharedInstance.buildBaseURL();
+            if (methodName != undefined) {
+                issueRequest(jsonData, methodName, apiLanguage, withFullPath, function (response) {
+                    postExecuteCallback(response);
+                });
+            }
+        }
+    });
+}
 function issueRequest(jsonData, methodName, apiLanguage, withFullPath, postExecuteCallback) {
-    var path = MFSettings.sharedInstance.getBaseURL() + methodName;
+    if (MFPaymentRequest$$1.sharedInstance.countries == null && methodName != "https://portal.myfatoorah.com/Files/API/mf-config.json") {
+        loadCountries(0, jsonData, methodName, apiLanguage, withFullPath, function (response) {
+            postExecuteCallback(response);
+        });
+        return;
+    }
+    var path = MFSettings$$1.sharedInstance.getBaseURL() + methodName;
     if (withFullPath) {
         path = methodName;
     }
     var newRequest = new Request(path);
     newRequest.addHeader('Content-Type', 'application/json');
-    newRequest.addHeader('Authorization', 'Bearer ' + MFSettings.sharedInstance.getToken());
+    newRequest.addHeader('Authorization', 'Bearer ' + MFSettings$$1.sharedInstance.getToken());
     newRequest.addHeader('Accept-Language', apiLanguage);
     if (jsonData !== undefined) {
         newRequest.setJsonData(jsonData);
     }
 
     RNETWORK.post(newRequest, function () {}, function (response) {
+        postExecuteCallback(response);
+    });
+}
+function issueRequest2(jsonData, methodName, apiLanguage, withFullPath, postExecuteCallback) {
+    if (MFPaymentRequest$$1.sharedInstance.countries == null && methodName != "https://portal.myfatoorah.com/Files/API/mf-config.json") {
+        loadCountries(jsonData, methodName, apiLanguage, withFullPath, function (response) {
+            postExecuteCallback(response);
+        });
+        return;
+    }
+    var path = MFSettings$$1.sharedInstance.getBaseURL() + methodName;
+    if (withFullPath) {
+        path = methodName;
+    }
+    var newRequest = new Request(path);
+    newRequest.addHeader('Content-Type', 'application/json');
+    newRequest.addHeader('Accept-Language', apiLanguage);
+    if (jsonData !== undefined) {
+        newRequest.setJsonData(jsonData);
+    }
+
+    RNETWORK.get(newRequest, function () {}, function (response) {
         postExecuteCallback(response);
     });
 }
@@ -1145,7 +1216,7 @@ function handleDirectPayment(response, navigation, cardInfo, apiLanguage, postEx
         var cardInfoResponse = response.getBodyJson().Data;
         var paymentID = cardInfoResponse.PaymentId;
         var paymentStatusRequest = new MFPaymentStatusRequest$$1(paymentID, MFKeyType.PAYMENTID);
-        MFPaymentRequest.sharedInstance.getPaymentStatus(paymentStatusRequest, apiLanguage, function (response) {
+        MFPaymentRequest$$1.sharedInstance.getPaymentStatus(paymentStatusRequest, apiLanguage, function (response) {
             var errorMessage = response.errorMessage(false, false);
             if (errorMessage.length !== 0) {
                 response.setError('Error Message', errorMessage);
@@ -1159,6 +1230,84 @@ function handleDirectPayment(response, navigation, cardInfo, apiLanguage, postEx
 //endregion
 var CALLBACK_URL = 'https://myfatoorah.com/';
 var ERROR_URL = 'https://myfatooraherror.com/';
+
+var MFSettings$$1 = function () {
+  function MFSettings$$1() {
+    classCallCheck(this, MFSettings$$1);
+  }
+
+  createClass(MFSettings$$1, [{
+    key: 'configure',
+    value: function configure(baseURL, token) {
+      this.environment = baseURL;
+      if (baseURL.charAt(baseURL.length - 1) !== "/") {
+        this.baseURL = baseURL + '/';
+      } else {
+        this.baseURL = baseURL;
+      }
+      this.token = token;
+    }
+  }, {
+    key: 'configure',
+    value: function configure(token, country, environment) {
+      this.environment = environment;
+      this.country = country;
+      loadCountries(0, undefined, undefined, undefined, undefined, undefined);
+      this.token = token;
+    }
+  }, {
+    key: 'buildBaseURL',
+    value: function buildBaseURL() {
+      this.baseURL = "";
+      this.countryValue = MFPaymentRequest$$1.sharedInstance.countries['' + this.country];
+      if (this.environment == MFEnvironment.LIVE) {
+        this.baseURL = this.countryValue.v2;
+      } else {
+        this.baseURL = this.countryValue.testv2;
+      }
+      if (this.baseURL.charAt(this.baseURL.length - 1) !== "/") {
+        this.baseURL = this.baseURL + '/';
+      }
+    }
+  }, {
+    key: 'getBaseURL',
+    value: function getBaseURL() {
+      return this.baseURL + 'v2/';
+    }
+  }, {
+    key: 'getToken',
+    value: function getToken() {
+      return this.token;
+    }
+  }, {
+    key: 'setTheme',
+    value: function setTheme(theme) {
+      this.theme = theme;
+    }
+  }, {
+    key: 'getTheme',
+    value: function getTheme() {
+      if (this.theme === undefined) {
+        return new MFTheme$$1('red', 'gray', 'Payment', 'Cancel');
+      }
+      return this.theme;
+    }
+  }, {
+    key: 'getInvironment',
+    value: function getInvironment() {
+      return this.environment;
+    }
+  }]);
+  return MFSettings$$1;
+}();
+
+MFSettings$$1.sharedInstance = MFSettings$$1.sharedInstance == null ? new MFSettings$$1() : MFSettings$$1.sharedInstance;
+function MFTheme$$1(navigationTintColor, navigationBarTintColor, navigationTitle, cancelButtonTitle) {
+  this.navigationTintColor = navigationTintColor;
+  this.navigationBarTintColor = navigationBarTintColor;
+  this.navigationTitle = navigationTitle;
+  this.cancelButtonTitle = cancelButtonTitle;
+}
 
 YellowBox.ignoreWarnings(['Non-serializable values were found in the navigation state']);
 
@@ -1178,6 +1327,7 @@ var MFWebView$$1 = function (_Component) {
       var apiLanguage = route.params.apiLanguage;
       var postExecuteCallback = route.params.postExecuteCallback;
       var cardInfoResponse = route.params.cardInfoResponse;
+      var recurringId = route.params.recurringId;
 
 
       if (url.includes(CALLBACK_URL) || url.includes(ERROR_URL)) {
@@ -1188,7 +1338,7 @@ var MFWebView$$1 = function (_Component) {
           });
           var paymentId = _this.parseURLParams('paymentId', url);
           var paymentStatusRequest = new MFPaymentStatusRequest$$1(paymentId, "PaymentId");
-          MFPaymentRequest.sharedInstance.getPaymentStatus(paymentStatusRequest, apiLanguage, function (response) {
+          MFPaymentRequest$$1.sharedInstance.getPaymentStatus(paymentStatusRequest, apiLanguage, function (response) {
             var errorMessage = response.errorMessage(false, false);
             if (errorMessage.length !== 0) {
               response.setError('Error Message', errorMessage);
@@ -1196,14 +1346,23 @@ var MFWebView$$1 = function (_Component) {
             } else {
               if (cardInfoResponse !== undefined) {
                 var directPaymentResponse = new Response();
+                var paymentStatusResponse = response.getBodyJson().Data;
+                paymentStatusResponse.RecurringId = recurringId;
                 var directPaymentJson = {
-                  getPaymentStatusResponse: response.getBodyJson().Data,
+                  getPaymentStatusResponse: paymentStatusResponse,
                   cardInfoResponse: cardInfoResponse
                 };
                 directPaymentResponse.setBody(JSON.stringify(directPaymentJson));
                 postExecuteCallback(directPaymentResponse);
               } else {
-                postExecuteCallback(response);
+                var paymentResponse = new Response();
+                var paymentStatusResponse = response.getBodyJson().Data;
+                paymentStatusResponse.RecurringId = recurringId;
+                var responseJSON = {
+                  Data: paymentStatusResponse
+                };
+                paymentResponse.setBody(JSON.stringify(responseJSON));
+                postExecuteCallback(paymentResponse);
               }
             }
             navigation.goBack();
@@ -1226,7 +1385,7 @@ var MFWebView$$1 = function (_Component) {
   }, {
     key: 'LoadingIndicatorView',
     value: function LoadingIndicatorView() {
-      return React.createElement(ActivityIndicator, { color: MFSettings.sharedInstance.getTheme().navigationTintColor, size: 'large', style: styles.ActivityIndicatorStyle });
+      return React.createElement(ActivityIndicator, { color: MFSettings$$1.sharedInstance.getTheme().navigationTintColor, size: 'large', style: styles.ActivityIndicatorStyle });
     }
   }, {
     key: 'parseURLParams',
@@ -1280,18 +1439,18 @@ MFWebView$$1.navigationOptions = function (_ref2) {
 
   return {
     gestureEnabled: false,
-    title: MFSettings.sharedInstance.getTheme().navigationTitle,
+    title: MFSettings$$1.sharedInstance.getTheme().navigationTitle,
     headerStyle: {
-      backgroundColor: MFSettings.sharedInstance.getTheme().navigationBarTintColor
+      backgroundColor: MFSettings$$1.sharedInstance.getTheme().navigationBarTintColor
     },
-    headerTintColor: MFSettings.sharedInstance.getTheme().navigationTintColor,
+    headerTintColor: MFSettings$$1.sharedInstance.getTheme().navigationTintColor,
     headerRight: function headerRight() {
       return React.createElement(
         TouchableOpacity,
         { onPress: function onPress() {
             return navigation.setParams({ refresh: 1 });
           } },
-        React.createElement(Image, { style: [styles.ImageClass, { tintColor: MFSettings.sharedInstance.getTheme().navigationTintColor }], source: require('./assets/refresh.png') })
+        React.createElement(Image, { style: [styles.ImageClass, { tintColor: MFSettings$$1.sharedInstance.getTheme().navigationTintColor }], source: require('./assets/refresh.png') })
       );
     },
     headerLeft: function headerLeft() {
@@ -1304,8 +1463,8 @@ MFWebView$$1.navigationOptions = function (_ref2) {
           postExecuteCallback(response);
           navigation.goBack();
         },
-        title: MFSettings.sharedInstance.getTheme().cancelButtonTitle,
-        color: MFSettings.sharedInstance.getTheme().navigationTintColor
+        title: MFSettings$$1.sharedInstance.getTheme().cancelButtonTitle,
+        color: MFSettings$$1.sharedInstance.getTheme().navigationTintColor
       });
     }
   };
@@ -1359,7 +1518,7 @@ var MFCardPaymentView$$1 = function (_Component) {
           var json = JSON.parse(event.nativeEvent.data);
           if (json.sessionId != null) {
             _this2.request.sessionId = json.sessionId;
-            MFPaymentRequest.sharedInstance.executePayment(_this2.navigation, _this2.request, _this2.apiLanguage, function (response) {
+            MFPaymentRequest$$1.sharedInstance.executePayment(_this2.navigation, _this2.request, _this2.apiLanguage, function (response) {
               _this2.postExecuteCallback(response);
             });
           } else {
@@ -1383,7 +1542,7 @@ var MFCardPaymentView$$1 = function (_Component) {
     key: 'buildHtmlText',
     value: function buildHtmlText(sessionId, countryCode, labels, placeholders, theme, cardHeight, borderWidth, borderRadius, fontSize) {
       var librarySrc = "https://demo.myfatoorah.com/cardview/v1/session.js";
-      if (MFSettings.sharedInstance.getInvironment() == MFEnvironment.LIVE) {
+      if (MFSettings$$1.sharedInstance.getInvironment() == MFEnvironment.LIVE) {
         librarySrc = "https://portal.myfatoorah.com/cardview/v1/session.js";
       }
       var HTML = '\n        <!DOCTYPE html>\n        <html lang="en">\n        \n        <head>\n            <meta charset="UTF-8">\n            <meta http-equiv="X-UA-Compatible" content="IE=edge">\n            <meta name="viewport" content="width=device-width,height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">\n            <style>body { overflow: hidden !important }</style>\n            <style>\n            *:not(input):not(textarea) {\n            -webkit-user-select: none; /* disable selection/Copy of UIWebView */\n                -webkit-touch-callout: none; /* disable the IOS popup when long-press on a link */\n                -webkit-tap-highlight-color: rgba(0,0,0,0);\n            }\n          </style>\n          </head>\n        \n        <body>\n            <script src="' + librarySrc + '"></script>\n            <div style="width:100%">\n                <div id="card-element"></div>\n            </div>        \n            <script>\n                var config = {\n                  countryCode: "' + countryCode + '", // Here, add your Country Code.\n                  sessionId: "' + sessionId + '", // Here you add the "SessionId" you receive from InitiateSession Endpoint.\n                  cardViewId: "card-element",\n                  // The following style is optional.\n                  style: {\n                    cardHeight: ' + cardHeight + ',\n                    input: {\n                      color: "' + theme.inputColor + '",\n                      fontSize: "' + fontSize + 'px",\n                      fontFamily: "sans-serif",\n                      inputHeight: "32px",\n                      inputMargin: "0px",\n                      borderColor: "' + theme.inputColor + '",\n                      borderWidth: "' + borderWidth + 'px",\n                      borderRadius: "' + borderRadius + 'px",\n                      boxShadow: "",\n                      placeHolder: {\n                        holderName: "' + placeholders.cardHolderName + '",\n                        cardNumber: "' + placeholders.cardNumber + '",\n                        expiryDate: "' + placeholders.expiryDate + '",\n                        securityCode: "' + placeholders.cvv + '",\n                      }\n                    },\n                    label: {\n                      display: ' + labels.showLabels + ',\n                      color: "' + theme.labelColor + '",\n                      fontSize: "' + fontSize + 'px",\n                      fontFamily: "sans-serif",\n                      text: {\n                        holderName: "' + labels.cardHolderName + '",\n                        cardNumber: "' + labels.cardNumber + '",\n                        expiryDate: "' + labels.expiryDate + '",\n                        securityCode: "' + labels.cvv + '",\n                      },\n                    },\n                    error: {\n                      borderColor: "' + theme.errorColor + '",\n                      borderRadius: "' + borderRadius + 'px",\n                      boxShadow: "0px",\n                    },\n                  },\n              };\n              this.myFatoorah.init(config);\n        \n              function submit() {\n                    this.myFatoorah.submit()\n                    // On success\n                    .then(function (response) {\n                      var data = {\n                        sessionId: response["SessionId"],\n                        cardBrand : response["CardBrand"]\n                    };\n                    let stringJSON = JSON.stringify(data, "*")\n                    window.ReactNativeWebView.postMessage(stringJSON);\n                    },\n                    // In case of errors\n                    function (error) {\n                      var data = {\n                        error: error\n                    };\n                    let stringJSON = JSON.stringify(data, "*")\n                    window.ReactNativeWebView.postMessage(stringJSON);\n                    });\n                }\n            </script>\n        \n        </body>\n        \n        </html>\n        ';
@@ -1428,10 +1587,10 @@ var MFInAppApplePayView$$1 = function (_Component) {
           scrollEnabled: false,
           enableApplePay: true,
           onMessage: function onMessage(event) {
-            alert(event.nativeEvent.data);
+            // alert(event.nativeEvent.data)
             var json = JSON.parse(event.nativeEvent.data);
-            if (json.sessionId != null) {
-              _this2.request.sessionId = json.sessionId;
+            if (json.SessionId != null) {
+              _this2.request.sessionId = json.SessionId;
               _this2.requestExecutePayment();
             } else {
               var responseError = new Response();
@@ -1450,7 +1609,7 @@ var MFInAppApplePayView$$1 = function (_Component) {
       var _this3 = this;
 
       var jsonData = executePaymentJson(this.request);
-      issueRequest(jsonData, 'ExecutePayment', apiLanguage, false, function (response) {
+      issueRequest(jsonData, 'ExecutePayment', this.apiLanguage, false, function (response) {
         var errorMessage = response.errorMessage(false, true);
         if (errorMessage.length !== 0) {
           response.setError("Error Message", errorMessage);
@@ -1468,13 +1627,15 @@ var MFInAppApplePayView$$1 = function (_Component) {
       var _this4 = this;
 
       issueRequest(undefined, path, this.apiLanguage, true, function (response) {
-        var errorMessage = response.errorMessage(false, true);
-        if (errorMessage.length !== 0) {
-          response.setError("Error Message", errorMessage);
-          postExecuteCallback(response);
-        } else {
-          _this4.getTransactions(invoiceId);
-        }
+        // var errorMessage = response.errorMessage(false, true)
+        // if (errorMessage.length !== 0) {
+        //   alert("executeCallBack error"+  response)
+        //   response.setError("Error Message", errorMessage)
+        //   postExecuteCallback(response);
+        // } else {
+        //   alert("executeCallBack"+  response)
+        _this4.getTransactions(invoiceId);
+        // }
       });
     }
   }, {
@@ -1482,8 +1643,8 @@ var MFInAppApplePayView$$1 = function (_Component) {
     value: function getTransactions(invoiceId) {
       var _this5 = this;
 
-      var paymentStatusRequest = new MFPaymentStatusRequest(invoiceId, "InvoiceId");
-      MFPaymentRequest.sharedInstance.getPaymentStatus(paymentStatusRequest, this.apiLanguage, function (response) {
+      var paymentStatusRequest = new MFPaymentStatusRequest$$1(invoiceId, "InvoiceId");
+      MFPaymentRequest$$1.sharedInstance.getPaymentStatus(paymentStatusRequest, this.apiLanguage, function (response) {
         var errorMessage = response.errorMessage(false, false);
         if (errorMessage.length !== 0) {
           response.setError('Error Message', errorMessage);
@@ -1507,12 +1668,13 @@ var MFInAppApplePayView$$1 = function (_Component) {
   }, {
     key: 'buildURL',
     value: function buildURL() {
-      var link = 'https://ap.myfatoorah.com/?sessionId=' + this.sessionId + '&countryCode=' + this.countryCode + '&currencyCode=' + this.request.displayCurrencyIso + '&amount=' + this.request.invoiceValue + '&platform=react';
+      var isLive = MFSettings$$1.sharedInstance.getInvironment() == MFEnvironment.LIVE ? true : false;
+      var link = 'https://ap.myfatoorah.com/?sessionId=' + this.sessionId + '&countryCode=' + this.countryCode + '&currencyCode=' + this.request.displayCurrencyIso + '&amount=' + this.request.invoiceValue + '&platform=react&isLive=' + isLive;
       return link;
     }
   }]);
   return MFInAppApplePayView$$1;
 }(Component);
 
-export { MFSettings, Response, MFWebView$$1 as MFWebView, MFTheme, MFCardPaymentView$$1 as MFCardPaymentView, MFInAppApplePayView$$1 as MFInAppApplePayView, MFInitiatePayment$$1 as MFInitiatePayment, MFPaymentRequest, MFExecutePaymentRequest$$1 as MFExecutePaymentRequest, MFCustomerAddress$$1 as MFCustomerAddress, MFProduct$$1 as MFProduct, MFSupplier$$1 as MFSupplier, MFPaymentStatusRequest$$1 as MFPaymentStatusRequest, MFCardInfo$$1 as MFCardInfo, MFSendPaymentRequest$$1 as MFSendPaymentRequest, CALLBACK_URL, ERROR_URL, MFLanguage, MFNotificationOption, MFPaymentype, MFMobileCountryCodeISO, MFCurrencyISO, MFKeyType, MFEnvironment };
+export { MFSettings$$1 as MFSettings, Response, MFWebView$$1 as MFWebView, MFTheme$$1 as MFTheme, MFCardPaymentView$$1 as MFCardPaymentView, MFInAppApplePayView$$1 as MFInAppApplePayView, MFInitiatePayment$$1 as MFInitiatePayment, MFInitiateSessionRequest$$1 as MFInitiateSessionRequest, MFPaymentRequest$$1 as MFPaymentRequest, MFExecutePaymentRequest$$1 as MFExecutePaymentRequest, MFCustomerAddress$$1 as MFCustomerAddress, MFProduct$$1 as MFProduct, MFSupplier$$1 as MFSupplier, MFPaymentStatusRequest$$1 as MFPaymentStatusRequest, MFCardInfo$$1 as MFCardInfo, MFSendPaymentRequest$$1 as MFSendPaymentRequest, MFRecurringModel$$1 as MFRecurringModel, CALLBACK_URL, ERROR_URL, MFLanguage, MFNotificationOption, MFPaymentype, MFMobileCountryCodeISO, MFCurrencyISO, MFKeyType, MFEnvironment, MFCountry, MFRecurringType };
 //# sourceMappingURL=index.es.js.map
